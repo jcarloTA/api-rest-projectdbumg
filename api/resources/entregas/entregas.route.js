@@ -1,10 +1,10 @@
 const express = require("express");
 
-encuestasModel = require("./encuestas.model");
+entregaModel = require("./entregas.model");
 
-encuestasRoute = express.Router();
+entregasRoute = express.Router();
 
-encuestasRoute.post("/", async (req, res) => {
+entregasRoute.post("/", async (req, res) => {
 	try {
 		console.log("body", req.body);
 		if (
@@ -20,7 +20,7 @@ encuestasRoute.post("/", async (req, res) => {
 				);
 			return;
 		}
-		const response = await encuestasModel.crearEncuesta(req.body);
+		const response = await entregaModel.crearEncuesta(req.body);
 		if (response) {
 			res.status(200).json({ success: true });
 		} else {
@@ -32,4 +32,4 @@ encuestasRoute.post("/", async (req, res) => {
 	}
 });
 
-module.exports = encuestasRoute;
+module.exports = entregasRoute;

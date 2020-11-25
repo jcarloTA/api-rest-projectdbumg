@@ -1,152 +1,13 @@
 const oracle = require("./../../libs/conection");
-const bcrypt = require("bcrypt");
-const saltRounds = 5;
+const { v4: uuidv4 } = require("uuid");
 
-async function getUsers() {
-	const sql = "SELECT * FROM rol";
-	const connection = await oracle.getConnection();
-	results = await connection.execute(sql);
-	if (results && results.rows) {
-		return results.rows;
-	}
-	return [];
-}
-
-async function createRol(body) {
-	try {
-		const sql = `INSERT INTO ROL(nombre) VALUES(:nombre)`;
-		console.log("sql: ", sql);
-		const connection = await oracle.getConnection();
-		results = await connection.execute(
-			sql,
-			{ nombre: body.nombre },
-			{ autoCommit: true }
-		);
-		console.log("results", results);
-		if (results && results.rowsAffected) {
-			return results.rowsAffected;
-		}
-		connection.close();
-		return results;
-	} catch (err) {
-		console.log("err", err);
-		return null;
-	}
-}
-
-async function createClient(body) {
+async function obtenerTipoDeCompras() {
 	let connection = null;
 	try {
-		const sql = `INSERT INTO USUARIO(nombre, email, password, id_rol) 
-		VALUES(:nombre, :email, :password, :id_rol)`;
-		connection = await oracle.getConnection();
-		const hashedPwd = await bcrypt.hash(body.password, saltRounds);
-		console.log("password", hashedPwd);
-		results = await connection.execute(
-			sql,
-			{
-				nombre: body.nombre,
-				email: body.email,
-				password: hashedPwd,
-				id_rol: 2,
-			},
-			{ autoCommit: true }
-		);
-		if (results && results.rowsAffected) {
-			return results.rowsAffected;
-		}
-		connection.close();
-		return results;
-	} catch (err) {
-		if (connection) {
-			connection.close();
-		}
-		console.log("err", err);
-		return null;
-	}
-}
-
-async function loginUser(body) {
-	let connection = null;
-	try {
-		const sql = `SELECT id, nombre, email, password, id_rol FROM USUARIO 
-					WHERE email = :email`;
-		connection = await oracle.getConnection();
-		results = await connection.execute(
-			sql,
-			{ email: body.email },
-			{ autoCommit: true }
-		);
-		if(!results || !results.rows.length) {
-			return null;
-		}
-		const passwordHashed = results.rows[0][3];
-		const user = {
-			id: results.rows[0][0],
-			nombre: results.rows[0][1],
-			email: results.rows[0][2],
-			id_rol: results.rows[0][4],
-		};
-		console.log("user", user);
-		console.log("passwordHashed", passwordHashed);
-		const cmp = await bcrypt.compare(body.password, passwordHashed);
-		console.log("cmp", cmp);
-		connection.close();
-		if(cmp) {
-			return user;
-		} else {
-			return null;
-		}
-	} catch (err) {
-		if (connection) {
-			connection.close();
-		}
-		console.log("err", err);
-		return null;
-	}
-}
-
-async function crearDireccion(body) {
-	let connection = null;
-	try {
-		const sql = `INSERT INTO DIRECCION (nombre, descripcion, id_usuario) 
-		VALUES(:nombre, :descripcion, :id_usuario)`;
-		connection = await oracle.getConnection();
-		results = await connection.execute(
-			sql,
-			{
-				nombre: body.nombre,
-				descripcion: body.descripcion,
-				id_usuario: body.id_usuario,
-			},
-			{ autoCommit: true }
-		);
-		console.log('results', results);
-		if (results && results.rowsAffected) {
-			return results.rowsAffected;
-		}
-		connection.close();
-		return null;
-	} catch (err) {
-		if (connection) {
-			connection.close();
-		}
-		console.log("err", err);
-		return null;
-	}
-}
-
-async function obtenerComprasByCliente(id_usuario) {
-	let connection = null;
-	try {
-		const sql = `SELECT * FROM DIRECCION WHERE id_usuario = :id_usuario`;
+		const sql = `SELECT * FROM TIPO_COMPRA`;
 		console.log("sql: ", sql);
 		connection = await oracle.getConnection();
-		results = await connection.execute(
-			sql,
-			{ id_usuario: id_usuario },
-			{ autoCommit: true }
-		);
+		results = await connection.execute(sql, {}, { autoCommit: true });
 		console.log("results", results);
 		if (results && results.rows) {
 			return results.rows;
@@ -159,7 +20,219 @@ async function obtenerComprasByCliente(id_usuario) {
 	}
 }
 
+async function obtenerTiposDePagos() {
+	let connection = null;
+	try {
+		const sql = `SELECT * FROM TIPO_PAGO`;
+		console.log("sql: ", sql);
+		connection = await oracle.getConnection();
+		results = await connection.execute(sql, {}, { autoCommit: true });
+		console.log("results", results);
+		if (results && results.rows) {
+			return results.rows;
+		}
+		connection.close();
+		return results;
+	} catch (err) {
+		console.log("err", err);
+		return null;
+	}
+}
+
+async function crearCompraPorCliente(body) {
+	let connection = null;
+	try {
+		const sql = `INSERT INTO COMPRA(referencia, id_cliente, id_status, id_tipo_compra, fecha_creacion) 
+					VALUES(:referencia, :id_cliente, :id_status, :id_tipo_compra, :fecha_creacion)`;
+		console.log("sql: ", sql);
+		connection = await oracle.getConnection();
+		const reference = uuidv4();
+		let results = await connection.execute(
+			sql,
+			{
+				referencia: reference,
+				id_cliente: body.id_usuario,
+				id_status: 1,
+				id_tipo_compra: 2,
+				fecha_creacion: new Date(),
+			},
+			{ autoCommit: true }
+		);
+		if (!results || !results.rowsAffected) {
+			return null;
+		}
+		console.log("results", results);
+		const sql_select = `SELECT id FROM COMPRA WHERE referencia = :referencia`;
+		let resultsSelect = await connection.execute(
+			sql_select,
+			{
+				referencia: reference,
+			},
+			{ autoCommit: true }
+		);
+		if (!resultsSelect || !resultsSelect.rows) {
+			return null;
+		}
+		const compraNueva = resultsSelect.rows[0];
+		console.log("compraNueva", compraNueva);
+		for (let i = 0; i < body.productos.length; i++) {
+			let sql_product_compra = `INSERT INTO PRODUCTO_COMPRA(id_compra, id_producto, cantidad) 
+			VALUES(:id_compra, :id_producto, :cantidad)`;
+			let results_product_compra = await connection.execute(
+				sql_product_compra,
+				{
+					id_compra: compraNueva.ID,
+					id_producto: body.productos[i].id_producto,
+					cantidad: body.productos[i].cantidad,
+				},
+				{ autoCommit: true }
+			);
+			console.log("results_product_compra", results_product_compra);
+		}
+		console.log("resultsSelect", resultsSelect);
+		connection.close();
+		return results;
+	} catch (err) {
+		console.log("err", err);
+		if (connection) {
+			connection.close();
+		}
+		return null;
+	}
+}
+
+async function crearCompraPorEmpleado(body) {
+	let connection = null;
+	try {
+		const sql = `INSERT INTO COMPRA(referencia, id_vendedor, id_status, id_tipo_compra, fecha_creacion) 
+					VALUES(:referencia, :id_vendedor, :id_status, :id_tipo_compra, :fecha_creacion)`;
+		console.log("sql: ", sql);
+		connection = await oracle.getConnection();
+		const reference = uuidv4();
+		let results = await connection.execute(
+			sql,
+			{
+				referencia: reference,
+				id_vendedor: body.id_vendedor,
+				id_status: 1,
+				id_tipo_compra: 2,
+				fecha_creacion: new Date(),
+			},
+			{ autoCommit: true }
+		);
+		if (!results || !results.rowsAffected) {
+			return null;
+		}
+		console.log("results", results);
+		const sql_select = `SELECT id FROM COMPRA WHERE referencia = :referencia`;
+		let resultsSelect = await connection.execute(
+			sql_select,
+			{
+				referencia: reference,
+			},
+			{ autoCommit: true }
+		);
+		if (!resultsSelect || !resultsSelect.rows) {
+			return null;
+		}
+		const compraNueva = resultsSelect.rows[0];
+		console.log("compraNueva", compraNueva);
+		for (let i = 0; i < body.productos.length; i++) {
+			let sql_product_compra = `INSERT INTO PRODUCTO_COMPRA(id_compra, id_producto, cantidad) 
+			VALUES(:id_compra, :id_producto, :cantidad)`;
+			let results_product_compra = await connection.execute(
+				sql_product_compra,
+				{
+					id_compra: compraNueva.ID,
+					id_producto: body.productos[i].id_producto,
+					cantidad: body.productos[i].cantidad,
+				},
+				{ autoCommit: true }
+			);
+			console.log("results_product_compra", results_product_compra);
+		}
+		console.log("resultsSelect", resultsSelect);
+		connection.close();
+		return results;
+	} catch (err) {
+		console.log("err", err);
+		if (connection) {
+			connection.close();
+		}
+		return null;
+	}
+}
+
+async function actualizarEstadoCompra(body) {
+	let connection = null;
+	try {
+		const sql = `UPDATE COMPRA set id_status = :id_status WHERE id = :id_compra`;
+		console.log("sql: ", sql);
+		connection = await oracle.getConnection();
+		let results = await connection.execute(
+			sql,
+			{
+				id_status: body.id_status,
+				id_compra: body.id_compra,
+			},
+			{ autoCommit: true }
+		);
+		console.log("results", results);
+		if (!results || !results.rowsAffected) {
+			return null;
+		}
+		connection.close();
+		return results;
+	} catch (err) {
+		console.log("err", err);
+		if (connection) {
+			connection.close();
+		}
+		return null;
+	}
+}
+
+async function crearPago(body) {
+	let connection = null;
+	try {
+		const sql = `INSERT INTO PAGO(id_compra, monto, id_tipo_pago) 
+					VALUES(:id_compra, :monto, :id_tipo_pago) `;
+		console.log("sql: ", sql);
+		connection = await oracle.getConnection();
+		let results = await connection.execute(
+			sql,
+			{
+				id_compra: body.id_compra,
+				monto: body.monto,
+				id_tipo_pago: body.id_tipo_pago,
+			},
+			{ autoCommit: true }
+		);
+		console.log("results", results);
+		if (!results || !results.rowsAffected) {
+			return null;
+		}
+		const resultUpdateStatus = await actualizarEstadoCompra({
+			id_status: 5,
+			id_compra: body.id_compra,
+		});
+		console.log("resultUpdateStatus", resultUpdateStatus);
+		connection.close();
+		return results;
+	} catch (err) {
+		console.log("err", err);
+		if (connection) {
+			connection.close();
+		}
+		return null;
+	}
+}
 
 module.exports = {
-    
+	obtenerTipoDeCompras,
+	obtenerTiposDePagos,
+	crearCompraPorCliente,
+	crearCompraPorEmpleado,
+	actualizarEstadoCompra,
+	crearPago,
 };
